@@ -32,8 +32,6 @@ class AuthError(Exception):
         it should raise an AuthError if the header is malformed
     return the token part of the header
 '''
-
-
 def get_token_auth_header():
     # verified if authorization is in the headers
     if "Authorization" not in request.headers:
@@ -62,10 +60,16 @@ def get_token_auth_header():
     return true otherwise
 '''
 
+
 def check_permissions(permission, payload):
-    if permission != payload.signature['permission']:
-        abort(402)
-    print("Not working yet")
+    if 'permissions' not in payload:
+        abort(400)
+
+    if permission not in payload['permissions']:
+        abort(403)
+
+    return True
+
 
 '''
 @TODO implement verify_decode_jwt(token) method
@@ -80,6 +84,7 @@ def check_permissions(permission, payload):
 
     !!NOTE urlopen has a common certificate error described here: https://stackoverflow.com/questions/50236117/scraping-ssl-certificate-verify-failed-error-for-http-en-wikipedia-org
 '''
+
 
 def verify_decode_jwt(token):
     # GET THE PUBLIC KEY FROM AUTH0
@@ -142,6 +147,7 @@ def verify_decode_jwt(token):
                 'description': 'Unable to find the appropriate key.'
     }, 400)
 
+
 '''
 @TODO implement @requires_auth(permission) decorator method
     @INPUTS
@@ -152,13 +158,15 @@ def verify_decode_jwt(token):
     it should use the check_permissions method validate claims and check the requested permission
     return the decorator which passes the decoded payload to the decorated method
 '''
-
 def requires_auth(permission=''):
     def requires_auth_decorator(f):
         @wraps(f)
         def wrapper(*args, **kwargs):
             token = get_token_auth_header()
-            payload = verify_decode_jwt(token)
+            try:
+                payload = verify_decode_jwt(token)
+            except:
+                abort(401)    
             check_permissions(permission, payload)
             return f(payload, *args, **kwargs)
 
