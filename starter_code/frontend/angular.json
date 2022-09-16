@@ -1,5 +1,6 @@
+
 {
-  "$schema": "./node_modules/@angular-devkit/core/src/workspace/workspace-schema.json",
+  "$schema": "./node_modules/@angular-devkit/core/src/workspace/workspace-schema.js",
   "version": 1,
   "defaultProject": "app",
   "newProjectRoot": "projects",
@@ -181,7 +182,8 @@
     }
   },
   "cli": {
-    "defaultCollection": "@ionic/angular-toolkit"
+    "defaultCollection": "@ionic/angular-toolkit",
+    "analytics": false
   },
   "schematics": {
     "@ionic/angular-toolkit:component": {

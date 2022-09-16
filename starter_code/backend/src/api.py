@@ -53,20 +53,19 @@ def get_drinks():
         or appropriate status code indicating reason for failure
 '''
 
+can = "get:drinks-detail"
+
 
 @app.route("/drinks-detail")
-@requires_auth
+@requires_auth(can)
 def get_drinks_detail(can):
     try:
-        if can == 'get:drinks-detail':
-            seletion = Drink.query.order_by(Drink.id).all()
-            drinks = [drink.long() for drink in seletion]
-            return jsonify({
-                'success': True,
-                'drinks': drinks
-            })
-        else:
-            abort(401)
+        seletion = Drink.query.order_by(Drink.id).all()
+        drinks = [drink.long() for drink in seletion]
+        return jsonify({
+            'success': True,
+            'drinks': drinks
+        })
     except:
         abort(422)
 
@@ -83,21 +82,29 @@ def get_drinks_detail(can):
 
 
 @app.route("/drinks", methods=['POST'])
-@requires_auth
+@requires_auth("post:drinks")
 def create_new_drink(can):
     try:
-        new_title = request.drink['title']
-        new_recipe = request.drink['recipe']
-        if can == 'post:drinks':
-            drink = Drink(new_title, new_recipe)
+        body = request.get_json()
+        # The issue lies here
+        new_title = body.get('title', None)
+        new_recipe = str(body.get('recipe', None))
+
+        drink_exist = Drink.query.filter(
+            Drink.title == new_title).one_or_none()
+
+        if drink_exist is None:
+            drink = Drink(title=new_title, recipe=new_recipe)
             drink.insert()
-            drinks = Drink.query.order_by(Drink.id).all()
-            return jsonify({
-                'success': True,
-                'drinks': [drink.long() for drink in drinks]
-            })
         else:
-            abort(401)
+            abort(409)
+
+        drinks = Drink.query.order_by(Drink.id).all()
+
+        return jsonify({
+            'success': True,
+            'drinks': [drink.long() for drink in drinks]
+        })
     except:
         abort(422)
 
@@ -125,19 +132,21 @@ def create_new_drink(can):
         or appropriate status code indicating reason for failure
 '''
 
+
 @app.route("/drinks/<int:drink_id>", methods=['PATCH', 'DELETE'])
-@requires_auth
+@requires_auth("patch:drinks" or "delete:drinks")
 def update(can, drink_id):
     try:
-
+        body = request.get_json()
         drink = Drink.query.filter(Drink.id == drink_id).one_or_none()
 
         if drink is None:
             abort(404)
 
-        if request.method == 'PATCH' and can == 'patch:drinks':
-            drink.title = request.drink['title']
-            drink.recipe = request.drink['recipe']
+        if request.method == 'PATCH':
+            # here lies issue
+            if 'title' in body:
+                drink.title = body.get('title')
             drink.update()
             # fetch all drinks
             drinks = Drink.query.order_by(Drink.id).all()
@@ -145,14 +154,8 @@ def update(can, drink_id):
                 'success': True,
                 'drinks': [drink.long() for drink in drinks]
             })
-        elif request.method == 'DELETE' and can == 'delete:drinks':
-            delete_drink = drink.long()
-            drink = Drink(
-                title=delete_drink['title'],
-                recipe=delete_drink['recipe']
-            )
+        elif request.method == 'DELETE':
             drink.delete()
-            # return {'success': True, 'delete':drink_id}
             return jsonify({
                 'success': True,
                 'delete': drink_id
@@ -173,6 +176,8 @@ Example error handling for unprocessable entity
 @TODO implement error handler for 404
     error handler should conform to general task above
 '''
+
+
 @app.errorhandler(404)
 def unprocessable(error):
     return jsonify({
@@ -191,10 +196,21 @@ def unprocessable(error):
     }), 422
 
 
+@app.errorhandler(409)
+def information(error):
+    return jsonify({
+        "success": False,
+        "error": 409,
+        "message": "Drink already exist"
+    }), 409
+
+
 '''
 @TODO implement error handler for AuthError
     error handler should conform to general task above
 '''
+
+
 @app.errorhandler(400)
 def permissionNotIncluded(error):
     return jsonify({
@@ -202,6 +218,7 @@ def permissionNotIncluded(error):
         'error': 400,
         'message': 'Permissions not included in JWT.'
     })
+
 
 @app.errorhandler(401)
 def unauthorized(error):
